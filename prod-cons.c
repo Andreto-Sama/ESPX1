@@ -25,27 +25,27 @@ typedef struct {
 } queue;
 
 void *angler(void *arg){
-  int x = (int) arg;
+  int x = 20;
   int y;
   for (int i = 1; i < 11; i++) {
     y = sin(i*x);
   }
-
+  printf("done\n");
 }
 
 queue *queueInit (void);
 void queueDelete (queue *q);
 void queueAdd (queue *q, struct workFunction w);
-void queueDel (queue *q, int *out);
+void queueDel (queue *q, struct workFunction *out);
 
 int main (int argc, char *argv[])
 {
   queue *fifo;
   int i;
-  int p = atoi(argv[2]);
-  int q = atoi(argv[3]);
+  int p = atoi(argv[1]);
+  int q = atoi(argv[2]);
   pthread_t *pro, *con;
-
+  printf("%d producers, %d consumers\n", p, q );
   pro = (pthread_t *)malloc(p*sizeof(pthread_t));
   con = (pthread_t *)malloc(q*sizeof(pthread_t));
 
@@ -93,8 +93,9 @@ void *producer (void *q)
       printf ("producer: queue FULL.\n");
       pthread_cond_wait (fifo->notFull, fifo->mut);
     }
-    w.arg = rand();
+    //w.arg = rand();
     queueAdd (fifo, w);
+    printf("added\n");
     pthread_mutex_unlock (fifo->mut);
     pthread_cond_signal (fifo->notEmpty);
     usleep (100000);
@@ -120,7 +121,6 @@ void *consumer (void *q)
     d.work(d.arg);
     pthread_mutex_unlock (fifo->mut);
     pthread_cond_signal (fifo->notFull);
-    printf ("consumer: recieved %d.\n", d);
     usleep(200000);
   }
   return (NULL);
@@ -172,7 +172,7 @@ void queueAdd (queue *q, struct workFunction w)
   return;
 }
 
-void queueDel (queue *q, int *out)
+void queueDel (queue *q, struct workFunction *out)
 {
   *out = q->buf[q->head];
 
