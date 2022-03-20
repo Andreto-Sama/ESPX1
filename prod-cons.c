@@ -105,7 +105,8 @@ void *producer (void *q)
 void *consumer (void *q)
 {
   queue *fifo;
-  int i, d;
+  int i;
+  struct workFunction d;
 
   fifo = (queue *)q;
 
@@ -116,6 +117,7 @@ void *consumer (void *q)
       pthread_cond_wait (fifo->notEmpty, fifo->mut);
     }
     queueDel (fifo, &d);
+    d.work(d.arg);
     pthread_mutex_unlock (fifo->mut);
     pthread_cond_signal (fifo->notFull);
     printf ("consumer: recieved %d.\n", d);
