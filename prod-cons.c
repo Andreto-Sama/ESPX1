@@ -4,9 +4,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define QUEUESIZE 10
-#define LOOP 20
+#define LOOP 20000
+
+double timer;
 
 void *producer (void *args);
 void *consumer (void *args);
@@ -25,29 +28,31 @@ typedef struct {
 } queue;
 
 void *angler(void *arg){
-  int x = 20;
-  int y;
-  for (int i = 1; i < 11; i++) {
-    y = sin(i*x);
-  }
-  printf("done\n");
+  for (int i = 1; i < 11; i++)
+    sin(i*10);
+  //printf("done  \n");
 }
 
 queue *queueInit (void);
 void queueDelete (queue *q);
-void queueAdd (queue *q, struct workFunction w);
+void queueAdd (queue *q, struct workFunction in);
 void queueDel (queue *q, struct workFunction *out);
 
 int main (int argc, char *argv[])
 {
   queue *fifo;
   int i;
+  timer = 0;
   int p = atoi(argv[1]);
   int q = atoi(argv[2]);
+
   pthread_t *pro, *con;
-  printf("%d producers, %d consumers\n", p, q );
+  printf("%d producers, %d consumers\n", p,q);
+
   pro = (pthread_t *)malloc(p*sizeof(pthread_t));
   con = (pthread_t *)malloc(q*sizeof(pthread_t));
+
+  //srand((unsigned int)time(NULL));
 
   fifo = queueInit ();
   if (fifo ==  NULL) {
@@ -80,7 +85,8 @@ void *producer (void *q)
   queue *fifo;
   int i;
 
-  srand(time(0));
+  //srand(time(0));
+  struct timeval cur_time;
 
   struct workFunction w;
   w.work = angler;
@@ -90,16 +96,17 @@ void *producer (void *q)
   for (i = 0; i < LOOP; i++) {
     pthread_mutex_lock (fifo->mut);
     while (fifo->full) {
-      printf ("producer: queue FULL.\n");
+      //printf ("producer: queue FULL.\n");
       pthread_cond_wait (fifo->notFull, fifo->mut);
     }
-    //w.arg = rand();
+    gettimeofday(&cur_time, NULL);
+    timer -= (double)(cur_time.tv_usec/1.0e6 + cur_time.tv_sec);
     queueAdd (fifo, w);
-    printf("added\n");
     pthread_mutex_unlock (fifo->mut);
     pthread_cond_signal (fifo->notEmpty);
-    usleep (100000);
   }
+  usleep (10000000);
+  printf("%f \n", timer);
   return (NULL);
 }
 
@@ -108,20 +115,22 @@ void *consumer (void *q)
   queue *fifo;
   int i;
   struct workFunction d;
+  struct timeval cur_time;
 
   fifo = (queue *)q;
 
-  for (i = 0; i < LOOP; i++) {
+  while(1){
     pthread_mutex_lock (fifo->mut);
     while (fifo->empty) {
-      printf ("consumer: queue EMPTY.\n");
+      //printf ("consumer: queue EMPTY.\n");
       pthread_cond_wait (fifo->notEmpty, fifo->mut);
     }
+    gettimeofday(&cur_time, NULL);
+    timer += (double)(cur_time.tv_usec/1.0e6 + cur_time.tv_sec);
     queueDel (fifo, &d);
     d.work(d.arg);
     pthread_mutex_unlock (fifo->mut);
     pthread_cond_signal (fifo->notFull);
-    usleep(200000);
   }
   return (NULL);
 }
@@ -159,9 +168,9 @@ void queueDelete (queue *q)
   free (q);
 }
 
-void queueAdd (queue *q, struct workFunction w)
+void queueAdd (queue *q, struct workFunction in)
 {
-  q->buf[q->tail] = w;
+  q->buf[q->tail] = in;
   q->tail++;
   if (q->tail == QUEUESIZE)
     q->tail = 0;
